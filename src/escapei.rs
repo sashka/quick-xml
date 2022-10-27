@@ -10,8 +10,8 @@ use pretty_assertions::assert_eq;
 /// Error for XML escape / unescape.
 #[derive(Clone, Debug)]
 pub enum EscapeError {
-    /// Entity with Null character
-    EntityWithNull(Range<usize>),
+    /// RestrictedChar
+    RestrictedChar(Range<usize>),
     /// Unrecognized escape symbol
     UnrecognizedSymbol(Range<usize>, String),
     /// Cannot find `;` after `&`
@@ -31,9 +31,9 @@ pub enum EscapeError {
 impl std::fmt::Display for EscapeError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            EscapeError::EntityWithNull(e) => write!(
+            EscapeError::RestrictedChar(e) => write!(
                 f,
-                "Error while escaping character at range {:?}: Null character entity not allowed",
+                "Error while escaping character at range {:?}: Restricted character entity not allowed",
                 e
             ),
             EscapeError::UnrecognizedSymbol(rge, res) => write!(
@@ -224,6 +224,7 @@ fn named_entity(name: &str) -> Option<&str> {
     };
     Some(s)
 }
+
 #[cfg(feature = "escape-html")]
 fn named_entity(name: &str) -> Option<&str> {
     // imported from https://dev.w3.org/html5/html-author/charref
@@ -1695,8 +1696,8 @@ fn parse_number(bytes: &str, range: Range<usize>) -> Result<char, EscapeError> {
     } else {
         parse_decimal(bytes)
     }?;
-    if code == 0 {
-        return Err(EscapeError::EntityWithNull(range));
+    if is_restricted_code(code) {
+        return Err(EscapeError::RestrictedChar(range));
     }
     match std::char::from_u32(code) {
         Some(c) => Ok(c),
@@ -1736,6 +1737,18 @@ fn parse_decimal(bytes: &str) -> Result<u32, EscapeError> {
         } as u32;
     }
     Ok(code)
+}
+
+#[cfg(not(feature = "allow-restricted-chars"))]
+#[inline(always)]
+fn is_restricted_code(c: u32) -> bool {
+    matches!(c, 0 | 0x1..=0x8 | 0xB..=0xC | 0xE..=0x1F | 0x7F..=0x84 | 0x86..=0x9F)
+}
+
+#[cfg(feature = "allow-restricted-chars")]
+#[inline(always)]
+fn is_restricted_code(_c: u32) -> bool {
+    false
 }
 
 #[test]
@@ -1793,6 +1806,270 @@ fn test_escape() {
         escape("prefix_\"a\"b&<>c"),
         "prefix_&quot;a&quot;b&amp;&lt;&gt;c"
     );
+}
+
+#[cfg(not(feature = "allow-restricted-chars"))]
+#[test]
+fn test_restricted_chars_unescape() {
+    // assert!(unescape("\u{0}").is_err());
+    assert!(unescape("&#x0;").is_err());
+
+    // assert!(unescape("\u{1}").is_err());
+    assert!(unescape("&#x1;").is_err());
+    // assert!(unescape("\u{2}").is_err());
+    assert!(unescape("&#x2;").is_err());
+    // assert!(unescape("\u{3}").is_err());
+    assert!(unescape("&#x3;").is_err());
+    // assert!(unescape("\u{4}").is_err());
+    assert!(unescape("&#x4;").is_err());
+    // assert!(unescape("\u{5}").is_err());
+    assert!(unescape("&#x5;").is_err());
+    // assert!(unescape("\u{6}").is_err());
+    assert!(unescape("&#x6;").is_err());
+    // assert!(unescape("\u{7}").is_err());
+    assert!(unescape("&#x7;").is_err());
+    // assert!(unescape("\u{8}").is_err());
+    assert!(unescape("&#x8;").is_err());
+
+    // assert!(unescape("\u{b}").is_err());
+    assert!(unescape("&#xB;").is_err());
+    // assert!(unescape("\u{c}").is_err());
+    assert!(unescape("&#xC;").is_err());
+
+    // assert!(unescape("\u{e}").is_err());
+    assert!(unescape("&#xE;").is_err());
+    // assert!(unescape("\u{f}").is_err());
+    assert!(unescape("&#xF;").is_err());
+    // assert!(unescape("\u{10}").is_err());
+    assert!(unescape("&#x10;").is_err());
+    // assert!(unescape("\u{11}").is_err());
+    assert!(unescape("&#x11;").is_err());
+    // assert!(unescape("\u{12}").is_err());
+    assert!(unescape("&#x12;").is_err());
+    // assert!(unescape("\u{13}").is_err());
+    assert!(unescape("&#x13;").is_err());
+    // assert!(unescape("\u{14}").is_err());
+    assert!(unescape("&#x14;").is_err());
+    // assert!(unescape("\u{15}").is_err());
+    assert!(unescape("&#x15;").is_err());
+    // assert!(unescape("\u{16}").is_err());
+    assert!(unescape("&#x16;").is_err());
+    // assert!(unescape("\u{17}").is_err());
+    assert!(unescape("&#x17;").is_err());
+    // assert!(unescape("\u{18}").is_err());
+    assert!(unescape("&#x18;").is_err());
+    // assert!(unescape("\u{19}").is_err());
+    assert!(unescape("&#x19;").is_err());
+    // assert!(unescape("\u{1a}").is_err());
+    assert!(unescape("&#x1A;").is_err());
+    // assert!(unescape("\u{1b}").is_err());
+    assert!(unescape("&#x1B;").is_err());
+    // assert!(unescape("\u{1c}").is_err());
+    assert!(unescape("&#x1C;").is_err());
+    // assert!(unescape("\u{1d}").is_err());
+    assert!(unescape("&#x1D;").is_err());
+    // assert!(unescape("\u{1e}").is_err());
+    assert!(unescape("&#x1E;").is_err());
+    // assert!(unescape("\u{1f}").is_err());
+    assert!(unescape("&#x1F;").is_err());
+
+    // assert!(unescape("\u{7f}").is_err());
+    assert!(unescape("&#x7F;").is_err());
+    // assert!(unescape("\u{80}").is_err());
+    assert!(unescape("&#x80;").is_err());
+    // assert!(unescape("\u{81}").is_err());
+    assert!(unescape("&#x81;").is_err());
+    // assert!(unescape("\u{82}").is_err());
+    assert!(unescape("&#x82;").is_err());
+    // assert!(unescape("\u{83}").is_err());
+    assert!(unescape("&#x83;").is_err());
+    // assert!(unescape("\u{84}").is_err());
+    assert!(unescape("&#x84;").is_err());
+
+    // assert!(unescape("\u{86}").is_err());
+    assert!(unescape("&#x86;").is_err());
+    // assert!(unescape("\u{87}").is_err());
+    assert!(unescape("&#x87;").is_err());
+    // assert!(unescape("\u{88}").is_err());
+    assert!(unescape("&#x88;").is_err());
+    // assert!(unescape("\u{89}").is_err());
+    assert!(unescape("&#x89;").is_err());
+    // assert!(unescape("\u{8a}").is_err());
+    assert!(unescape("&#x8A;").is_err());
+    // assert!(unescape("\u{8b}").is_err());
+    assert!(unescape("&#x8B;").is_err());
+    // assert!(unescape("\u{8c}").is_err());
+    assert!(unescape("&#x8C;").is_err());
+    // assert!(unescape("\u{8d}").is_err());
+    assert!(unescape("&#x8D;").is_err());
+    // assert!(unescape("\u{8e}").is_err());
+    assert!(unescape("&#x8E;").is_err());
+    // assert!(unescape("\u{8f}").is_err());
+    assert!(unescape("&#x8F;").is_err());
+    // assert!(unescape("\u{90}").is_err());
+    assert!(unescape("&#x90;").is_err());
+    // assert!(unescape("\u{91}").is_err());
+    assert!(unescape("&#x91;").is_err());
+    // assert!(unescape("\u{92}").is_err());
+    assert!(unescape("&#x92;").is_err());
+    // assert!(unescape("\u{93}").is_err());
+    assert!(unescape("&#x93;").is_err());
+    // assert!(unescape("\u{94}").is_err());
+    assert!(unescape("&#x94;").is_err());
+    // assert!(unescape("\u{95}").is_err());
+    assert!(unescape("&#x95;").is_err());
+    // assert!(unescape("\u{96}").is_err());
+    assert!(unescape("&#x96;").is_err());
+    // assert!(unescape("\u{97}").is_err());
+    assert!(unescape("&#x97;").is_err());
+    // assert!(unescape("\u{98}").is_err());
+    assert!(unescape("&#x98;").is_err());
+    // assert!(unescape("\u{99}").is_err());
+    assert!(unescape("&#x99;").is_err());
+    // assert!(unescape("\u{9a}").is_err());
+    assert!(unescape("&#x9A;").is_err());
+    // assert!(unescape("\u{9b}").is_err());
+    assert!(unescape("&#x9B;").is_err());
+    // assert!(unescape("\u{9c}").is_err());
+    assert!(unescape("&#x9C;").is_err());
+    // assert!(unescape("\u{9d}").is_err());
+    assert!(unescape("&#x9D;").is_err());
+    // assert!(unescape("\u{9e}").is_err());
+    assert!(unescape("&#x9E;").is_err());
+    // assert!(unescape("\u{9f}").is_err());
+    assert!(unescape("&#x9F;").is_err());
+}
+
+#[cfg(feature = "allow-restricted-chars")]
+#[test]
+fn test_restricted_chars_unescape() {
+    assert_eq!(unescape("\u{0}").unwrap(), "\u{0}");
+    assert_eq!(unescape("&#x0;").unwrap(), "\u{0}");
+
+    assert_eq!(unescape("\u{1}").unwrap(), "\u{1}");
+    assert_eq!(unescape("&#x1;").unwrap(), "\u{1}");
+    assert_eq!(unescape("\u{2}").unwrap(), "\u{2}");
+    assert_eq!(unescape("&#x2;").unwrap(), "\u{2}");
+    assert_eq!(unescape("\u{3}").unwrap(), "\u{3}");
+    assert_eq!(unescape("&#x3;").unwrap(), "\u{3}");
+    assert_eq!(unescape("\u{4}").unwrap(), "\u{4}");
+    assert_eq!(unescape("&#x4;").unwrap(), "\u{4}");
+    assert_eq!(unescape("\u{5}").unwrap(), "\u{5}");
+    assert_eq!(unescape("&#x5;").unwrap(), "\u{5}");
+    assert_eq!(unescape("\u{6}").unwrap(), "\u{6}");
+    assert_eq!(unescape("&#x6;").unwrap(), "\u{6}");
+    assert_eq!(unescape("\u{7}").unwrap(), "\u{7}");
+    assert_eq!(unescape("&#x7;").unwrap(), "\u{7}");
+    assert_eq!(unescape("\u{8}").unwrap(), "\u{8}");
+    assert_eq!(unescape("&#x8;").unwrap(), "\u{8}");
+
+    assert_eq!(unescape("\u{b}").unwrap(), "\u{b}");
+    assert_eq!(unescape("&#xB;").unwrap(), "\u{b}");
+    assert_eq!(unescape("\u{c}").unwrap(), "\u{c}");
+    assert_eq!(unescape("&#xC;").unwrap(), "\u{c}");
+
+    assert_eq!(unescape("\u{e}").unwrap(), "\u{e}");
+    assert_eq!(unescape("&#xE;").unwrap(), "\u{e}");
+    assert_eq!(unescape("\u{f}").unwrap(), "\u{f}");
+    assert_eq!(unescape("&#xF;").unwrap(), "\u{f}");
+    assert_eq!(unescape("\u{10}").unwrap(), "\u{10}");
+    assert_eq!(unescape("&#x10;").unwrap(), "\u{10}");
+    assert_eq!(unescape("\u{11}").unwrap(), "\u{11}");
+    assert_eq!(unescape("&#x11;").unwrap(), "\u{11}");
+    assert_eq!(unescape("\u{12}").unwrap(), "\u{12}");
+    assert_eq!(unescape("&#x12;").unwrap(), "\u{12}");
+    assert_eq!(unescape("\u{13}").unwrap(), "\u{13}");
+    assert_eq!(unescape("&#x13;").unwrap(), "\u{13}");
+    assert_eq!(unescape("\u{14}").unwrap(), "\u{14}");
+    assert_eq!(unescape("&#x14;").unwrap(), "\u{14}");
+    assert_eq!(unescape("\u{15}").unwrap(), "\u{15}");
+    assert_eq!(unescape("&#x15;").unwrap(), "\u{15}");
+    assert_eq!(unescape("\u{16}").unwrap(), "\u{16}");
+    assert_eq!(unescape("&#x16;").unwrap(), "\u{16}");
+    assert_eq!(unescape("\u{17}").unwrap(), "\u{17}");
+    assert_eq!(unescape("&#x17;").unwrap(), "\u{17}");
+    assert_eq!(unescape("\u{18}").unwrap(), "\u{18}");
+    assert_eq!(unescape("&#x18;").unwrap(), "\u{18}");
+    assert_eq!(unescape("\u{19}").unwrap(), "\u{19}");
+    assert_eq!(unescape("&#x19;").unwrap(), "\u{19}");
+    assert_eq!(unescape("\u{1a}").unwrap(), "\u{1a}");
+    assert_eq!(unescape("&#x1A;").unwrap(), "\u{1a}");
+    assert_eq!(unescape("\u{1b}").unwrap(), "\u{1b}");
+    assert_eq!(unescape("&#x1B;").unwrap(), "\u{1b}");
+    assert_eq!(unescape("\u{1c}").unwrap(), "\u{1c}");
+    assert_eq!(unescape("&#x1C;").unwrap(), "\u{1c}");
+    assert_eq!(unescape("\u{1d}").unwrap(), "\u{1d}");
+    assert_eq!(unescape("&#x1D;").unwrap(), "\u{1d}");
+    assert_eq!(unescape("\u{1e}").unwrap(), "\u{1e}");
+    assert_eq!(unescape("&#x1E;").unwrap(), "\u{1e}");
+    assert_eq!(unescape("\u{1f}").unwrap(), "\u{1f}");
+    assert_eq!(unescape("&#x1F;").unwrap(), "\u{1f}");
+
+    assert_eq!(unescape("\u{7f}").unwrap(), "\u{7f}");
+    assert_eq!(unescape("&#x7F;").unwrap(), "\u{7f}");
+    assert_eq!(unescape("\u{80}").unwrap(), "\u{80}");
+    assert_eq!(unescape("&#x80;").unwrap(), "\u{80}");
+    assert_eq!(unescape("\u{81}").unwrap(), "\u{81}");
+    assert_eq!(unescape("&#x81;").unwrap(), "\u{81}");
+    assert_eq!(unescape("\u{82}").unwrap(), "\u{82}");
+    assert_eq!(unescape("&#x82;").unwrap(), "\u{82}");
+    assert_eq!(unescape("\u{83}").unwrap(), "\u{83}");
+    assert_eq!(unescape("&#x83;").unwrap(), "\u{83}");
+    assert_eq!(unescape("\u{84}").unwrap(), "\u{84}");
+    assert_eq!(unescape("&#x84;").unwrap(), "\u{84}");
+
+    assert_eq!(unescape("\u{86}").unwrap(), "\u{86}");
+    assert_eq!(unescape("&#x86;").unwrap(), "\u{86}");
+    assert_eq!(unescape("\u{87}").unwrap(), "\u{87}");
+    assert_eq!(unescape("&#x87;").unwrap(), "\u{87}");
+    assert_eq!(unescape("\u{88}").unwrap(), "\u{88}");
+    assert_eq!(unescape("&#x88;").unwrap(), "\u{88}");
+    assert_eq!(unescape("\u{89}").unwrap(), "\u{89}");
+    assert_eq!(unescape("&#x89;").unwrap(), "\u{89}");
+    assert_eq!(unescape("\u{8a}").unwrap(), "\u{8a}");
+    assert_eq!(unescape("&#x8A;").unwrap(), "\u{8a}");
+    assert_eq!(unescape("\u{8b}").unwrap(), "\u{8b}");
+    assert_eq!(unescape("&#x8B;").unwrap(), "\u{8b}");
+    assert_eq!(unescape("\u{8c}").unwrap(), "\u{8c}");
+    assert_eq!(unescape("&#x8C;").unwrap(), "\u{8c}");
+    assert_eq!(unescape("\u{8d}").unwrap(), "\u{8d}");
+    assert_eq!(unescape("&#x8D;").unwrap(), "\u{8d}");
+    assert_eq!(unescape("\u{8e}").unwrap(), "\u{8e}");
+    assert_eq!(unescape("&#x8E;").unwrap(), "\u{8e}");
+    assert_eq!(unescape("\u{8f}").unwrap(), "\u{8f}");
+    assert_eq!(unescape("&#x8F;").unwrap(), "\u{8f}");
+    assert_eq!(unescape("\u{90}").unwrap(), "\u{90}");
+    assert_eq!(unescape("&#x90;").unwrap(), "\u{90}");
+    assert_eq!(unescape("\u{91}").unwrap(), "\u{91}");
+    assert_eq!(unescape("&#x91;").unwrap(), "\u{91}");
+    assert_eq!(unescape("\u{92}").unwrap(), "\u{92}");
+    assert_eq!(unescape("&#x92;").unwrap(), "\u{92}");
+    assert_eq!(unescape("\u{93}").unwrap(), "\u{93}");
+    assert_eq!(unescape("&#x93;").unwrap(), "\u{93}");
+    assert_eq!(unescape("\u{94}").unwrap(), "\u{94}");
+    assert_eq!(unescape("&#x94;").unwrap(), "\u{94}");
+    assert_eq!(unescape("\u{95}").unwrap(), "\u{95}");
+    assert_eq!(unescape("&#x95;").unwrap(), "\u{95}");
+    assert_eq!(unescape("\u{96}").unwrap(), "\u{96}");
+    assert_eq!(unescape("&#x96;").unwrap(), "\u{96}");
+    assert_eq!(unescape("\u{97}").unwrap(), "\u{97}");
+    assert_eq!(unescape("&#x97;").unwrap(), "\u{97}");
+    assert_eq!(unescape("\u{98}").unwrap(), "\u{98}");
+    assert_eq!(unescape("&#x98;").unwrap(), "\u{98}");
+    assert_eq!(unescape("\u{99}").unwrap(), "\u{99}");
+    assert_eq!(unescape("&#x99;").unwrap(), "\u{99}");
+    assert_eq!(unescape("\u{9a}").unwrap(), "\u{9a}");
+    assert_eq!(unescape("&#x9A;").unwrap(), "\u{9a}");
+    assert_eq!(unescape("\u{9b}").unwrap(), "\u{9b}");
+    assert_eq!(unescape("&#x9B;").unwrap(), "\u{9b}");
+    assert_eq!(unescape("\u{9c}").unwrap(), "\u{9c}");
+    assert_eq!(unescape("&#x9C;").unwrap(), "\u{9c}");
+    assert_eq!(unescape("\u{9d}").unwrap(), "\u{9d}");
+    assert_eq!(unescape("&#x9D;").unwrap(), "\u{9d}");
+    assert_eq!(unescape("\u{9e}").unwrap(), "\u{9e}");
+    assert_eq!(unescape("&#x9E;").unwrap(), "\u{9e}");
+    assert_eq!(unescape("\u{9f}").unwrap(), "\u{9f}");
+    assert_eq!(unescape("&#x9F;").unwrap(), "\u{9f}");
 }
 
 #[test]

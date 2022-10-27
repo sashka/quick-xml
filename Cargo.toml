@@ -183,6 +183,11 @@ serde-types = ["serde/derive"]
 ## If you need that, use the `serde-types` feature.
 serialize = ["serde"] # "dep:" prefix only avalible from Rust 1.60
 
+# Allow characters restricted in XML 1.1 spec (https://www.w3.org/TR/xml11/#charsets) to be parsed and written.
+# By deafult they are not allowed and will return RestrictedChar error when reading or writing.
+allow-restricted-chars = []
+
+
 [package.metadata.docs.rs]
 # document all features
 all-features = true
