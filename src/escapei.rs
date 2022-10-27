@@ -10,7 +10,7 @@ use pretty_assertions::assert_eq;
 /// Error for XML escape / unescape.
 #[derive(Clone, Debug)]
 pub enum EscapeError {
-    /// RestrictedChar
+    /// Restricted character or entiry
     RestrictedChar(Range<usize>),
     /// Unrecognized escape symbol
     UnrecognizedSymbol(Range<usize>, String),
